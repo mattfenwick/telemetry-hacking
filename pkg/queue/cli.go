@@ -37,6 +37,7 @@ func Run(configPath string) {
 	utils.DoOrDie(utils.ReadJsonFromFile(&config, configPath))
 	logrus.Infof("queue config: %+v", config)
 
+	// start telemetry setup
 	tp, err := utils.SetUpTracerProvider(config.JaegerURL, "worker")
 	utils.DoOrDie(err)
 
@@ -48,8 +49,10 @@ func Run(configPath string) {
 		defer timedCancel()
 		utils.DoOrDie(tp.Shutdown(timedContext))
 	}(outerContext)
+	// end telemetry setup
 
-	queue := NewQueue()
+	stop := make(chan struct{})
+	queue := NewQueue(stop)
 
 	logrus.Infof("instantiated queue: %+v", queue)
 	SetupHTTPServer(queue)

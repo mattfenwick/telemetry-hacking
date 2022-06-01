@@ -72,7 +72,7 @@ func runWorkerCommand(configPath string) {
 	utils.DoOrDie(utils.ReadJsonFromFile(&args, configPath))
 	logrus.Infof("worker args: %+v", args)
 
-	tp, err := utils.SetUpJaegerTracerProvider("http://localhost:14268/api/traces", "worker")
+	tp, err := utils.SetUpTracerProvider("http://localhost:14268/api/traces", "worker")
 	utils.DoOrDie(err)
 
 	outerContext, cancel := context.WithCancel(context.Background())

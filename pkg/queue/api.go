@@ -6,9 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	//"github.com/open-telemetry/opentelemetry-go-contrib/"
-
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 type JobState string
@@ -20,9 +18,12 @@ const (
 	JobStateSuccess    JobState = "JobStateSuccess"
 )
 
+func (s JobState) String() string {
+	return string(s)
+}
+
 type State struct {
-	Finished   []*JobStatus
-	InProgress []*JobStatus
+	Jobs map[string][]*JobStatus
 }
 
 type JobStatus struct {
@@ -49,6 +50,7 @@ type Responder interface {
 func SetupHTTPServer(responder Responder) {
 	// state of the program
 	http.HandleFunc("/state", func(w http.ResponseWriter, r *http.Request) {
+		logrus.Infof("handling state request")
 		if r.Method == "GET" {
 			state, err := responder.State()
 			if err != nil {
@@ -64,18 +66,19 @@ func SetupHTTPServer(responder Responder) {
 	})
 
 	http.HandleFunc("/job", func(w http.ResponseWriter, r *http.Request) {
+		logrus.Infof("handling job request")
 		switch r.Method {
 		case "POST":
 			body, err := ioutil.ReadAll(r.Body)
 			if err != nil {
-				log.Errorf("unable to read body for AddJob POST: %s", err.Error())
+				logrus.Errorf("unable to read body for AddJob POST: %s", err.Error())
 				responder.Error(w, r, err, 400)
 				return
 			}
 			var job JobRequest
 			err = utils.ParseJson(&job, body)
 			if err != nil {
-				log.Errorf("unable to ummarshal JSON for AddJob POST: %s", err.Error())
+				logrus.Errorf("unable to ummarshal JSON for AddJob POST: %s", err.Error())
 				responder.Error(w, r, err, 400)
 				return
 			}

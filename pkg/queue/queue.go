@@ -1,24 +1,72 @@
 package queue
 
 import (
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"net/http"
+	"sync"
 )
 
 type Queue struct {
+	Actions chan func()
+	Jobs    map[JobState][]*JobStatus
 }
 
-func NewQueue() *Queue {
-	return &Queue{}
+func NewQueue(stop <-chan struct{}) *Queue {
+	actionsChannel := make(chan func())
+	go func() {
+		for {
+			select {
+			case <-stop:
+				return
+			case f := <-actionsChannel:
+				logrus.Debugf("handling queue action")
+				f()
+			}
+		}
+	}()
+	return &Queue{Actions: actionsChannel,
+		Jobs: map[JobState][]*JobStatus{
+			JobStateError:      nil,
+			JobStateInProgress: nil,
+			JobStateSuccess:    nil,
+			JobStateTodo:       nil,
+		}}
 }
 
 func (q *Queue) State() (*State, error) {
-	return nil, errors.Errorf("TODO")
+	state := &State{Jobs: map[string][]*JobStatus{
+		JobStateError.String():      nil,
+		JobStateInProgress.String(): nil,
+		JobStateSuccess.String():    nil,
+		JobStateTodo.String():       nil,
+	}}
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	q.Actions <- func() {
+		for status, jobs := range q.Jobs {
+			for _, job := range jobs {
+				state.Jobs[status.String()] = append(state.Jobs[status.String()], job)
+			}
+		}
+		wg.Done()
+	}
+	wg.Wait()
+	return state, nil
 }
 
+// TODO start, finish, fail job
+
 func (q *Queue) SubmitJob(job *JobRequest) (*JobStatus, error) {
-	return nil, errors.Errorf("TODO -- %+v", job)
+	status := &JobStatus{
+		Request: job,
+		State:   JobStateTodo,
+		Answer:  nil,
+		Error:   "",
+	}
+	q.Actions <- func() {
+		q.Jobs[JobStateTodo] = append(q.Jobs[JobStateTodo], status)
+	}
+	return status, nil
 }
 
 // NotFound logs the http client not found error
