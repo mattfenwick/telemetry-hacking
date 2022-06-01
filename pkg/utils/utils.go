@@ -36,6 +36,10 @@ func DumpJSON(obj interface{}) string {
 	return string(bytes)
 }
 
+func ParseJson(obj interface{}, bytes []byte) error {
+	return errors.Wrapf(json.Unmarshal(bytes, obj), "unable to unmarshal json")
+}
+
 func ReadJsonFromFile(obj interface{}, path string) error {
 	bytes, err := ReadFileBytes(path)
 	if err != nil {
