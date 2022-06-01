@@ -1,12 +1,15 @@
 package cli
 
 import (
+	"context"
 	"github.com/mattfenwick/telemetry-hacking/pkg/utils"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"go.opentelemetry.io/otel/trace"
 	"log"
 	"os"
+	"time"
 )
 
 func Run() {
@@ -66,6 +69,22 @@ func runWorkerCommand(configPath string) {
 	args := WorkerArgs{}
 	utils.DoOrDie(utils.ReadJsonFromFile(&args, configPath))
 	logrus.Infof("worker args: %+v", args)
+
+	tp, err := utils.SetUpJaegerTracerProvider("http://localhost:14268/api/traces", "worker")
+	utils.DoOrDie(err)
+
+	outerContext, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	defer func(closedContext context.Context) {
+		timedContext, timedCancel := context.WithTimeout(closedContext, time.Second*5)
+		defer timedCancel()
+		utils.DoOrDie(tp.Shutdown(timedContext))
+	}(outerContext)
+
+	utils.RunOperation(outerContext, "test-span", func(span trace.Span) error {
+		return errors.Errorf("TODO")
+	})
 
 	utils.DoOrDie(errors.Errorf("TODO"))
 }
