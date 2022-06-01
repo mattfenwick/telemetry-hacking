@@ -1,8 +1,11 @@
 package queue
 
 import (
+	"context"
 	"fmt"
 	"github.com/mattfenwick/telemetry-hacking/pkg/utils"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel/trace"
 	"io/ioutil"
 	"net/http"
 
@@ -40,19 +43,23 @@ type JobRequest struct {
 }
 
 type Responder interface {
-	State() (*State, error)
-	SubmitJob(job *JobRequest) (*JobStatus, error)
+	State(ctx context.Context) (*State, error)
+	SubmitJob(ctx context.Context, job *JobRequest) (*JobStatus, error)
 
 	NotFound(w http.ResponseWriter, r *http.Request)
 	Error(w http.ResponseWriter, r *http.Request, err error, statusCode int)
 }
 
 func SetupHTTPServer(responder Responder) {
-	// state of the program
-	http.HandleFunc("/state", func(w http.ResponseWriter, r *http.Request) {
+
+	handleState := func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		span := trace.SpanFromContext(ctx)
+		span.AddEvent("handling-state")
+
 		logrus.Infof("handling state request")
 		if r.Method == "GET" {
-			state, err := responder.State()
+			state, err := responder.State(ctx)
 			if err != nil {
 				responder.Error(w, r, err, 500)
 				return
@@ -63,9 +70,14 @@ func SetupHTTPServer(responder Responder) {
 		} else {
 			responder.NotFound(w, r)
 		}
-	})
+	}
+	http.Handle("/state", otelhttp.NewHandler(http.HandlerFunc(handleState), "wrapper-state"))
 
-	http.HandleFunc("/job", func(w http.ResponseWriter, r *http.Request) {
+	handleJob := func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		span := trace.SpanFromContext(ctx)
+		span.AddEvent("handling-job")
+
 		logrus.Infof("handling job request")
 		switch r.Method {
 		case "POST":
@@ -82,7 +94,7 @@ func SetupHTTPServer(responder Responder) {
 				responder.Error(w, r, err, 400)
 				return
 			}
-			jobStatus, err := responder.SubmitJob(&job)
+			jobStatus, err := responder.SubmitJob(ctx, &job)
 			if err != nil {
 				responder.Error(w, r, err, 500)
 				return
@@ -93,5 +105,6 @@ func SetupHTTPServer(responder Responder) {
 		default:
 			responder.NotFound(w, r)
 		}
-	})
+	}
+	http.Handle("/job", otelhttp.NewHandler(http.HandlerFunc(handleJob), "wrapper-job"))
 }

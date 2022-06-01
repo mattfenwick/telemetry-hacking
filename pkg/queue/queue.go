@@ -1,9 +1,12 @@
 package queue
 
 import (
+	"context"
 	"github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel/trace"
 	"net/http"
 	"sync"
+	"time"
 )
 
 type Queue struct {
@@ -12,7 +15,7 @@ type Queue struct {
 }
 
 func NewQueue(stop <-chan struct{}) *Queue {
-	actionsChannel := make(chan func())
+	actionsChannel := make(chan func(), 20)
 	go func() {
 		for {
 			select {
@@ -21,6 +24,7 @@ func NewQueue(stop <-chan struct{}) *Queue {
 			case f := <-actionsChannel:
 				logrus.Debugf("handling queue action")
 				f()
+				time.Sleep(2 * time.Second)
 			}
 		}
 	}()
@@ -33,7 +37,7 @@ func NewQueue(stop <-chan struct{}) *Queue {
 		}}
 }
 
-func (q *Queue) State() (*State, error) {
+func (q *Queue) State(ctx context.Context) (*State, error) {
 	state := &State{Jobs: map[string][]*JobStatus{
 		JobStateError.String():      nil,
 		JobStateInProgress.String(): nil,
@@ -42,6 +46,10 @@ func (q *Queue) State() (*State, error) {
 	}}
 	wg := sync.WaitGroup{}
 	wg.Add(1)
+
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("enqueueing state action")
+
 	q.Actions <- func() {
 		for status, jobs := range q.Jobs {
 			for _, job := range jobs {
@@ -51,21 +59,27 @@ func (q *Queue) State() (*State, error) {
 		wg.Done()
 	}
 	wg.Wait()
+	span.AddEvent("finished state action")
 	return state, nil
 }
 
 // TODO start, finish, fail job
 
-func (q *Queue) SubmitJob(job *JobRequest) (*JobStatus, error) {
+func (q *Queue) SubmitJob(ctx context.Context, job *JobRequest) (*JobStatus, error) {
 	status := &JobStatus{
 		Request: job,
 		State:   JobStateTodo,
 		Answer:  nil,
 		Error:   "",
 	}
+
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("enqueueing submitjob action")
+
 	q.Actions <- func() {
 		q.Jobs[JobStateTodo] = append(q.Jobs[JobStateTodo], status)
 	}
+	span.AddEvent("finished submitjob action")
 	return status, nil
 }
 

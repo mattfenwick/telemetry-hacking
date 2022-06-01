@@ -38,7 +38,7 @@ func Run(configPath string) {
 	logrus.Infof("queue config: %+v", config)
 
 	// start telemetry setup
-	tp, err := utils.SetUpTracerProvider(config.JaegerURL, "worker")
+	tp, err := utils.SetUpTracerProvider(config.JaegerURL, "queue")
 	utils.DoOrDie(err)
 
 	outerContext, cancel := context.WithCancel(context.Background())

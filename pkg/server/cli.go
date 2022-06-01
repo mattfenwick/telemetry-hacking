@@ -39,7 +39,7 @@ func Run(configPath string) {
 	logrus.Infof("server config: %+v", config)
 
 	// start telemetry setup
-	tp, err := utils.SetUpTracerProvider(config.JaegerURL, "worker")
+	tp, err := utils.SetUpTracerProvider(config.JaegerURL, "server")
 	utils.DoOrDie(err)
 
 	outerContext, cancel := context.WithCancel(context.Background())
@@ -62,7 +62,7 @@ func Run(configPath string) {
 			Args:     []string{"qrs"},
 		})
 		logrus.Infof("received status, err: %+v, %+v", status, jobErr)
-		time.Sleep(1 * time.Second)
+		//time.Sleep(1 * time.Second)
 	}
 
 	state, err := queueClient.GetState()

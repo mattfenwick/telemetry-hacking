@@ -73,7 +73,7 @@ func (c *Client) SubmitJob(job *JobRequest) (*JobStatus, error) {
 }
 
 func IssueRequest(client http.Client, makeRequest func(ctx context.Context) *http.Request, rootContext context.Context, tracer trace.Tracer) (string, error) {
-	spanContext, span := tracer.Start(rootContext, "say hello", trace.WithAttributes(semconv.PeerServiceKey.String("ExampleService")))
+	spanContext, span := tracer.Start(rootContext, "queue/request", trace.WithAttributes(semconv.PeerServiceKey.String("ExampleService")))
 	defer span.End()
 
 	httpContext := httptrace.WithClientTrace(spanContext, otelhttptrace.NewClientTrace(spanContext))
