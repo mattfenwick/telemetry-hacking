@@ -1,0 +1,6 @@
+{
+  "Port": 8001,
+  "JaegerURL": "http://localhost:14268/api/traces",
+  "QueueHost": "localhost",
+  "QueuePort": 8002
+}

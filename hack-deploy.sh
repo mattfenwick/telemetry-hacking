@@ -19,6 +19,9 @@ docker run -d --name jaeger \
   -p 9411:9411 \
   jaegertracing/all-in-one:1.35
 
+
+go run cmd/main.go worker --config-path worker-config.json -v debug
+
 go run cmd/main.go queue --config-path queue-config.json -v debug
 
 go run cmd/main.go server --config-path server-config.json -v debug

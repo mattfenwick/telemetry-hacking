@@ -1,0 +1,6 @@
+{
+  "Port": 8002,
+  "JaegerURL": "http://localhost:14268/api/traces",
+  "WorkerHost": "localhost",
+  "WorkerPort": 8003
+}

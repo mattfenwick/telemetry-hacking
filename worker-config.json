@@ -1,0 +1,5 @@
+{
+  "Port": 8003,
+  "JaegerURL": "http://localhost:14268/api/traces",
+  "ThreadCount": 3
+}
