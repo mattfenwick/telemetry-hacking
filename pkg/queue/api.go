@@ -15,64 +15,35 @@ import (
 type JobState string
 
 const (
-	JobStateTodo       JobState = "JobStateTodo"
-	JobStateInProgress JobState = "JobStateInProgress"
-	JobStateError      JobState = "JobStateError"
-	JobStateSuccess    JobState = "JobStateSuccess"
+	//JobStateTodo       JobState = "JobStateTodo"
+	//JobStateInProgress JobState = "JobStateInProgress"
+	JobStateError   JobState = "JobStateError"
+	JobStateSuccess JobState = "JobStateSuccess"
 )
 
 func (s JobState) String() string {
 	return string(s)
 }
 
-type State struct {
-	Jobs map[string][]*JobStatus
-}
-
-type JobStatus struct {
+type JobResult struct {
 	Request *JobRequest
-	State   JobState
-	Answer  any
-	Error   string
+	Answer  int
 }
 
 type JobRequest struct {
 	JobId    string
 	Function string
-	Args     []string
+	Args     []int
 }
 
 type Responder interface {
-	State(ctx context.Context) (*State, error)
-	SubmitJob(ctx context.Context, job *JobRequest) (*JobStatus, error)
+	SubmitJob(ctx context.Context, job *JobRequest) (*JobResult, error)
 
 	NotFound(w http.ResponseWriter, r *http.Request)
 	Error(w http.ResponseWriter, r *http.Request, err error, statusCode int)
 }
 
 func SetupHTTPServer(responder Responder) {
-
-	handleState := func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		span := trace.SpanFromContext(ctx)
-		span.AddEvent("handling-state")
-
-		logrus.Infof("handling state request")
-		if r.Method == "GET" {
-			state, err := responder.State(ctx)
-			if err != nil {
-				responder.Error(w, r, err, 500)
-				return
-			}
-			header := w.Header()
-			header.Set(http.CanonicalHeaderKey("content-type"), "application/json")
-			fmt.Fprint(w, utils.DumpJSON(state))
-		} else {
-			responder.NotFound(w, r)
-		}
-	}
-	http.Handle("/state", otelhttp.NewHandler(http.HandlerFunc(handleState), "wrapper-state"))
-
 	handleJob := func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		span := trace.SpanFromContext(ctx)

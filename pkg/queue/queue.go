@@ -2,85 +2,79 @@ package queue
 
 import (
 	"context"
+	"github.com/mattfenwick/telemetry-hacking/pkg/worker"
 	"github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	"net/http"
-	"sync"
-	"time"
 )
 
 type Queue struct {
-	Actions chan func()
-	Jobs    map[JobState][]*JobStatus
+	//Actions      chan func()
+	//Jobs         map[JobState][]*JobStatus
+	Tracer       trace.Tracer
+	WorkerClient *worker.Client
 }
 
-func NewQueue(stop <-chan struct{}) *Queue {
-	actionsChannel := make(chan func(), 20)
-	go func() {
-		for {
-			select {
-			case <-stop:
-				return
-			case f := <-actionsChannel:
-				logrus.Debugf("handling queue action")
-				f()
-				time.Sleep(2 * time.Second)
-			}
-		}
-	}()
-	return &Queue{Actions: actionsChannel,
-		Jobs: map[JobState][]*JobStatus{
-			JobStateError:      nil,
-			JobStateInProgress: nil,
-			JobStateSuccess:    nil,
-			JobStateTodo:       nil,
-		}}
-}
-
-func (q *Queue) State(ctx context.Context) (*State, error) {
-	state := &State{Jobs: map[string][]*JobStatus{
-		JobStateError.String():      nil,
-		JobStateInProgress.String(): nil,
-		JobStateSuccess.String():    nil,
-		JobStateTodo.String():       nil,
-	}}
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("enqueueing state action")
-
-	q.Actions <- func() {
-		for status, jobs := range q.Jobs {
-			for _, job := range jobs {
-				state.Jobs[status.String()] = append(state.Jobs[status.String()], job)
-			}
-		}
-		wg.Done()
+func NewQueue(stop <-chan struct{}, workerHost string, workerPort int) *Queue {
+	return &Queue{
+		//Actions: actionsChannel,
+		//Jobs: map[JobState][]*JobStatus{
+		//	JobStateError:      nil,
+		//	JobStateInProgress: nil,
+		//	JobStateSuccess:    nil,
+		//	JobStateTodo:       nil,
+		//},
+		Tracer:       otel.Tracer("queue"),
+		WorkerClient: worker.NewClient(workerHost, workerPort),
 	}
-	wg.Wait()
-	span.AddEvent("finished state action")
-	return state, nil
 }
+
+//func (q *Queue) State(ctx context.Context) (*State, error) {
+//	state := &State{Jobs: map[string][]*JobStatus{
+//		JobStateError.String():      nil,
+//		JobStateSuccess.String():    nil,
+//	}}
+//	wg := sync.WaitGroup{}
+//	wg.Add(1)
+//
+//	span := trace.SpanFromContext(ctx)
+//	span.AddEvent("enqueueing state action")
+//
+//	//utils.RunOperation(q.tracer, ctx, )
+//	_, newSpan := q.Tracer.Start(ctx, "TODO get state")
+//	defer newSpan.End()
+//
+//	q.Actions <- func() {
+//		for status, jobs := range q.Jobs {
+//			for _, job := range jobs {
+//				state.Jobs[status.String()] = append(state.Jobs[status.String()], job)
+//			}
+//		}
+//		wg.Done()
+//	}
+//	wg.Wait()
+//	span.AddEvent("finished state action")
+//	return state, nil
+//}
 
 // TODO start, finish, fail job
 
-func (q *Queue) SubmitJob(ctx context.Context, job *JobRequest) (*JobStatus, error) {
-	status := &JobStatus{
-		Request: job,
-		State:   JobStateTodo,
-		Answer:  nil,
-		Error:   "",
-	}
-
+func (q *Queue) SubmitJob(ctx context.Context, job *JobRequest) (*JobResult, error) {
 	span := trace.SpanFromContext(ctx)
-	span.AddEvent("enqueueing submitjob action")
+	span.AddEvent("starting submitjob action")
 
-	q.Actions <- func() {
-		q.Jobs[JobStateTodo] = append(q.Jobs[JobStateTodo], status)
+	result, err := q.WorkerClient.RunFunction(&worker.Function{
+		Name: job.Function,
+		Args: job.Args,
+	})
+	if err != nil {
+		return nil, err
 	}
-	span.AddEvent("finished submitjob action")
-	return status, nil
+	return &JobResult{
+		Request: job,
+		Answer:  result.Value,
+	}, nil
 }
 
 // NotFound logs the http client not found error

@@ -69,11 +69,8 @@ func SetUpTracerProvider(aggregatorURL string, service string) (*tracesdk.Tracer
 	return tracerProvider, nil
 }
 
-func RunOperation(ctx context.Context, spanName string, action func(span trace.Span) error) {
-	tr := otel.Tracer("TODO -- what should this be?")
-	// TODO -- add span config
-	_, span := tr.Start(ctx, spanName)
-	//span.SetAttributes(attribute.Key("TODO").String("TODO"))
+func RunOperation(tracer trace.Tracer, ctx context.Context, spanName string, action func(span trace.Span) error, opts ...trace.SpanStartOption) {
+	_, span := tracer.Start(ctx, spanName, opts...)
 	defer span.End()
 
 	err := action(span)

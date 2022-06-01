@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"github.com/mattfenwick/telemetry-hacking/pkg/queue"
+	"github.com/mattfenwick/telemetry-hacking/pkg/worker"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"golang.org/x/sync/errgroup"
 	"time"
 
 	"github.com/mattfenwick/telemetry-hacking/pkg/utils"
@@ -54,20 +56,40 @@ func Run(configPath string) {
 
 	queueClient := queue.NewClient(config.QueueHost, config.QueuePort)
 
-	for i := 0; i < 10; i++ {
-		logrus.Infof("issuing request %d", i)
-		status, jobErr := queueClient.SubmitJob(&queue.JobRequest{
-			JobId:    fmt.Sprintf("%d", i),
-			Function: "um",
-			Args:     []string{"qrs"},
-		})
-		logrus.Infof("received status, err: %+v, %+v", status, jobErr)
-		//time.Sleep(1 * time.Second)
+	requests := []*worker.Function{
+		{Name: "+"},
+		{Name: "*"},
+		{Name: "sleep", Args: []int{3111, 2111, 1111}},
+		{Name: "+", Args: []int{32}},
+		{Name: "*", Args: []int{32}},
+		{Name: "sleep", Args: []int{2468}},
+		{Name: "+", Args: []int{32, 45, 121, 18}},
+		{Name: "*", Args: []int{32, 45, 121, 18}},
+		{Name: "sleep", Args: []int{32, 2113}},
+		{Name: "+", Args: []int{333, 444, 555}},
+		{Name: "*", Args: []int{333, 444, 555}},
+		{Name: "sleep"},
 	}
 
-	state, err := queueClient.GetState()
-	utils.DoOrDie(err)
-	logrus.Infof("state: \n%+v\n", state)
+	group, _ := errgroup.WithContext(outerContext)
+	for i := 0; i < len(requests); i++ {
+		j := i
+		group.Go(func() error {
+			logrus.Infof("issuing request %d", j)
+			result, jobErr := queueClient.SubmitJob(&queue.JobRequest{
+				JobId:    fmt.Sprintf("%d", j),
+				Function: requests[j].Name,
+				Args:     requests[j].Args,
+			})
+			logrus.Infof("received status, err: %+v, %+v", result, jobErr)
+			return nil
+		})
+	}
+	_ = group.Wait()
+
+	//state, err := queueClient.GetState()
+	//utils.DoOrDie(err)
+	//logrus.Infof("state: \n%+v\n", state)
 
 	// TODO
 	//server := NewServer()

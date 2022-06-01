@@ -1,4 +1,4 @@
-package queue
+package worker
 
 import (
 	"context"
@@ -13,17 +13,16 @@ import (
 )
 
 type Config struct {
-	Port       int
-	JaegerURL  string
-	WorkerHost string
-	WorkerPort int
+	Port        int
+	JaegerURL   string
+	ThreadCount int
 }
 
 func Setup() *cobra.Command {
 	var configPath string
 
 	command := &cobra.Command{
-		Use: "queue",
+		Use: "worker",
 		Run: func(cmd *cobra.Command, positionalArgs []string) {
 			Run(configPath)
 		},
@@ -40,7 +39,7 @@ func Run(configPath string) {
 	logrus.Infof("queue config: %+v", config)
 
 	// start telemetry setup
-	tp, err := utils.SetUpTracerProvider(config.JaegerURL, "queue")
+	tp, err := utils.SetUpTracerProvider(config.JaegerURL, "worker")
 	utils.DoOrDie(err)
 
 	outerContext, cancel := context.WithCancel(context.Background())
@@ -54,10 +53,10 @@ func Run(configPath string) {
 	// end telemetry setup
 
 	stop := make(chan struct{})
-	queue := NewQueue(stop, config.WorkerHost, config.WorkerPort)
+	worker := NewWorker(config.ThreadCount, stop)
 
-	logrus.Infof("instantiated queue: %+v", queue)
-	SetupHTTPServer(queue)
+	logrus.Infof("instantiated worker: %+v", worker)
+	SetupHTTPServer(worker)
 
 	addr := fmt.Sprintf(":%d", config.Port)
 	logrus.Infof("starting HTTP server on port %d", config.Port)
