@@ -71,12 +71,12 @@ func Run(configPath string) {
 		{Name: "sleep"},
 	}
 
-	group, _ := errgroup.WithContext(outerContext)
+	group, errorGroupContext := errgroup.WithContext(outerContext)
 	for i := 0; i < len(requests); i++ {
 		j := i
 		group.Go(func() error {
 			logrus.Infof("issuing request %d", j)
-			result, jobErr := queueClient.SubmitJob(&queue.JobRequest{
+			result, jobErr := queueClient.SubmitJob(errorGroupContext, &queue.JobRequest{
 				JobId:    fmt.Sprintf("%d", j),
 				Function: requests[j].Name,
 				Args:     requests[j].Args,

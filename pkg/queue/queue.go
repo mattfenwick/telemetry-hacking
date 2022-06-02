@@ -12,7 +12,7 @@ import (
 type Queue struct {
 	//Actions      chan func()
 	//Jobs         map[JobState][]*JobStatus
-	Tracer       trace.Tracer
+	//Tracer       trace.Tracer
 	WorkerClient *worker.Client
 }
 
@@ -25,8 +25,8 @@ func NewQueue(stop <-chan struct{}, workerHost string, workerPort int) *Queue {
 		//	JobStateSuccess:    nil,
 		//	JobStateTodo:       nil,
 		//},
-		Tracer:       otel.Tracer("queue"),
-		WorkerClient: worker.NewClient(workerHost, workerPort),
+		//Tracer:       otel.Tracer("queue"),
+		WorkerClient: worker.NewClient(otel.Tracer("queue/client"), workerHost, workerPort),
 	}
 }
 
@@ -64,7 +64,7 @@ func (q *Queue) SubmitJob(ctx context.Context, job *JobRequest) (*JobResult, err
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("starting submitjob action")
 
-	result, err := q.WorkerClient.RunFunction(&worker.Function{
+	result, err := q.WorkerClient.RunFunction(ctx, &worker.Function{
 		Name: job.Function,
 		Args: job.Args,
 	})
@@ -77,14 +77,12 @@ func (q *Queue) SubmitJob(ctx context.Context, job *JobRequest) (*JobResult, err
 	}, nil
 }
 
-// NotFound logs the http client not found error
 func (q *Queue) NotFound(w http.ResponseWriter, r *http.Request) {
 	logrus.Errorf("HTTPResponder not found from request %+v", r)
 	//recordHTTPNotFound(r) // TODO metrics
 	http.NotFound(w, r)
 }
 
-// Error logs the http client errors
 func (q *Queue) Error(w http.ResponseWriter, r *http.Request, err error, statusCode int) {
 	logrus.Errorf("HTTPResponder error %s with code %d from request %+v", err.Error(), statusCode, r)
 	//recordHTTPError(r, err, statusCode) // TODO metrics

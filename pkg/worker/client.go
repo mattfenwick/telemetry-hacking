@@ -7,10 +7,10 @@ import (
 	"github.com/mattfenwick/telemetry-hacking/pkg/utils"
 	"net/http"
 	"strings"
+	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
-	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -20,15 +20,28 @@ type Client struct {
 	Tracer     trace.Tracer
 }
 
-func NewClient(serverHost string, serverPort int) *Client {
+func NewClient(tracer trace.Tracer, serverHost string, serverPort int) *Client {
+	return NewClientFromURL(tracer, fmt.Sprintf("http://%s:%d", serverHost, serverPort))
+}
+
+func NewClientFromURL(tracer trace.Tracer, serverURL string) *Client {
 	return &Client{
-		HttpClient: http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)},
-		ServerURL:  fmt.Sprintf("http://%s:%d", serverHost, serverPort),
-		Tracer:     otel.Tracer("queue/client"),
+		HttpClient: http.Client{Transport: otelhttp.NewTransport(transport())},
+		ServerURL:  serverURL,
+		Tracer:     tracer,
 	}
 }
 
-func (c *Client) RunFunction(f *Function) (*FunctionResult, error) {
+func transport() *http.Transport {
+	return &http.Transport{
+		Proxy:               http.ProxyFromEnvironment,
+		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: 100,
+		IdleConnTimeout:     90 * time.Second,
+	}
+}
+
+func (c *Client) RunFunction(methodContext context.Context, f *Function) (*FunctionResult, error) {
 	makeRequest := func(ctx context.Context) *http.Request {
 		request, err := http.NewRequestWithContext(
 			ctx,
@@ -38,7 +51,7 @@ func (c *Client) RunFunction(f *Function) (*FunctionResult, error) {
 		utils.DoOrDie(err)
 		return request
 	}
-	text, err := utils.IssueRequest(c.HttpClient, makeRequest, context.Background(), c.Tracer)
+	text, err := utils.IssueRequest(c.HttpClient, makeRequest, methodContext, c.Tracer)
 	if err != nil {
 		return nil, err
 	}

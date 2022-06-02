@@ -84,8 +84,8 @@ func (w *Worker) RunFunction(ctx context.Context, f *Function) (*FunctionResult,
 		wg.Done()
 	}
 
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("attempting to run function")
+	_, span := w.Tracer.Start(ctx, "run function")
+	defer span.End()
 
 	select {
 	case w.Actions <- action:

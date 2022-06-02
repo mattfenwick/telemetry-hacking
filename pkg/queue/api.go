@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/mattfenwick/telemetry-hacking/pkg/utils"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"go.opentelemetry.io/otel/trace"
 	"io/ioutil"
 	"net/http"
 
@@ -46,8 +45,6 @@ type Responder interface {
 func SetupHTTPServer(responder Responder) {
 	handleJob := func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		span := trace.SpanFromContext(ctx)
-		span.AddEvent("handling-job")
 
 		logrus.Infof("handling job request")
 		switch r.Method {
@@ -77,5 +74,5 @@ func SetupHTTPServer(responder Responder) {
 			responder.NotFound(w, r)
 		}
 	}
-	http.Handle("/job", otelhttp.NewHandler(http.HandlerFunc(handleJob), "wrapper-job"))
+	http.Handle("/job", otelhttp.NewHandler(http.HandlerFunc(handleJob), "handle queue/job"))
 }

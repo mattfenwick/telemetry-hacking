@@ -7,6 +7,7 @@ import (
 	"github.com/mattfenwick/telemetry-hacking/pkg/utils"
 	"net/http"
 	"strings"
+	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
@@ -22,13 +23,22 @@ type Client struct {
 
 func NewClient(serverHost string, serverPort int) *Client {
 	return &Client{
-		HttpClient: http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)},
+		HttpClient: http.Client{Transport: otelhttp.NewTransport(transport())},
 		ServerURL:  fmt.Sprintf("http://%s:%d", serverHost, serverPort),
 		Tracer:     otel.Tracer("queue/client"),
 	}
 }
 
-func (c *Client) SubmitJob(job *JobRequest) (*JobResult, error) {
+func transport() *http.Transport {
+	return &http.Transport{
+		Proxy:               http.ProxyFromEnvironment,
+		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: 100,
+		IdleConnTimeout:     90 * time.Second,
+	}
+}
+
+func (c *Client) SubmitJob(methodContext context.Context, job *JobRequest) (*JobResult, error) {
 	makeRequest := func(ctx context.Context) *http.Request {
 		request, err := http.NewRequestWithContext(
 			ctx,
@@ -38,7 +48,7 @@ func (c *Client) SubmitJob(job *JobRequest) (*JobResult, error) {
 		utils.DoOrDie(err)
 		return request
 	}
-	text, err := utils.IssueRequest(c.HttpClient, makeRequest, context.Background(), c.Tracer)
+	text, err := utils.IssueRequest(c.HttpClient, makeRequest, methodContext, c.Tracer)
 	if err != nil {
 		return nil, err
 	}
