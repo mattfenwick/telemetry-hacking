@@ -101,23 +101,26 @@ func (q *Middle) SubmitJobHttp(ctx context.Context, job *JobRequest) (*JobResult
 }
 
 func (q *Middle) SubmitJob(ctx context.Context, job *JobRequest) (*JobResult, error) {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("starting submitjob action")
+	if false {
+		span := trace.SpanFromContext(ctx)
+		span.AddEvent("starting submitjob action")
 
-	grpcResult, err := q.SubmitJobGRPC(ctx, job)
-	if err != nil {
-		return nil, err
-	}
-	httpResult, err := q.SubmitJobHttp(ctx, job)
-	if err != nil {
-		return nil, err
-	}
+		grpcResult, err := q.SubmitJobGRPC(ctx, job)
+		if err != nil {
+			return nil, err
+		}
+		httpResult, err := q.SubmitJobHttp(ctx, job)
+		if err != nil {
+			return nil, err
+		}
 
-	if grpcResult.Answer != httpResult.Answer {
-		return nil, errors.Errorf("got different answers from grpc and http: %d vs %d", grpcResult.Answer, httpResult.Answer)
-	}
+		if grpcResult.Answer != httpResult.Answer {
+			return nil, errors.Errorf("got different answers from grpc and http: %d vs %d", grpcResult.Answer, httpResult.Answer)
+		}
 
-	return grpcResult, nil
+		return grpcResult, nil
+	}
+	return q.SubmitJobGRPC(ctx, job)
 }
 
 func (q *Middle) NotFound(w http.ResponseWriter, r *http.Request) {

@@ -77,14 +77,6 @@ func runJob(name string, args []int) (int, error) {
 	}
 }
 
-func myMap[A, B any](f func(a A) B, xs []A) []B {
-	var out []B
-	for _, x := range xs {
-		out = append(out, f(x))
-	}
-	return out
-}
-
 func (w *Bottom) RunFunction(ctx context.Context, f *bottomProto.Function) (*bottomProto.FunctionResult, error) {
 	result, err := w.RunFunctionHttp(ctx, &Function{
 		Name: f.Name,

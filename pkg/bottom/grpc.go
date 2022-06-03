@@ -29,7 +29,9 @@ func NewGRPCServer(port int, bottom *Bottom) (*GRPCServer, error) {
 	interceptor := grpc.UnaryInterceptor(func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 		logrus.Infof("received %s request: ", info.FullMethod)
 		start := time.Now()
-		resp, err = handler(ctx, req)
+
+		// awkward "composition" of unary interceptors: see https://github.com/grpc/grpc-go/issues/935
+		resp, err = otelgrpc.UnaryServerInterceptor()(ctx, req, info, handler)
 
 		// parse grpc status code
 		code := codes.OK
@@ -42,11 +44,10 @@ func NewGRPCServer(port int, bottom *Bottom) (*GRPCServer, error) {
 			}
 		}
 
-		//metrics.RecordEventDuration(info.FullMethod, int(code), start)
+		utils.RecordEventDuration(info.FullMethod, int(code), start)
 		logrus.Infof("finished handling %s request: (%+v, %+v)", info.FullMethod, start, code)
 
-		// awkward "composition" of unary interceptors: see https://github.com/grpc/grpc-go/issues/935
-		return otelgrpc.UnaryServerInterceptor()(ctx, req, info, handler)
+		return resp, err
 	})
 
 	g.Server = grpc.NewServer(
