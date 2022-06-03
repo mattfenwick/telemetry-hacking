@@ -1,23 +1,23 @@
-package queue
+package middle
 
 import (
 	"context"
-	"github.com/mattfenwick/telemetry-hacking/pkg/worker"
+	"github.com/mattfenwick/telemetry-hacking/pkg/bottom"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	"net/http"
 )
 
-type Queue struct {
+type Middle struct {
 	//Actions      chan func()
 	//Jobs         map[JobState][]*JobStatus
 	//Tracer       trace.Tracer
-	WorkerClient *worker.Client
+	BottomClient *bottom.Client
 }
 
-func NewQueue(stop <-chan struct{}, workerHost string, workerPort int) *Queue {
-	return &Queue{
+func NewMiddle(stop <-chan struct{}, workerHost string, workerPort int) *Middle {
+	return &Middle{
 		//Actions: actionsChannel,
 		//Jobs: map[JobState][]*JobStatus{
 		//	JobStateError:      nil,
@@ -26,11 +26,11 @@ func NewQueue(stop <-chan struct{}, workerHost string, workerPort int) *Queue {
 		//	JobStateTodo:       nil,
 		//},
 		//Tracer:       otel.Tracer("queue"),
-		WorkerClient: worker.NewClient(otel.Tracer("queue/client"), workerHost, workerPort),
+		BottomClient: bottom.NewClient(otel.Tracer("queue/client"), workerHost, workerPort),
 	}
 }
 
-//func (q *Queue) State(ctx context.Context) (*State, error) {
+//func (q *Middle) State(ctx context.Context) (*State, error) {
 //	state := &State{Jobs: map[string][]*JobStatus{
 //		JobStateError.String():      nil,
 //		JobStateSuccess.String():    nil,
@@ -60,11 +60,11 @@ func NewQueue(stop <-chan struct{}, workerHost string, workerPort int) *Queue {
 
 // TODO start, finish, fail job
 
-func (q *Queue) SubmitJob(ctx context.Context, job *JobRequest) (*JobResult, error) {
+func (q *Middle) SubmitJob(ctx context.Context, job *JobRequest) (*JobResult, error) {
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("starting submitjob action")
 
-	result, err := q.WorkerClient.RunFunction(ctx, &worker.Function{
+	result, err := q.BottomClient.RunFunction(ctx, &bottom.Function{
 		Name: job.Function,
 		Args: job.Args,
 	})
@@ -77,13 +77,13 @@ func (q *Queue) SubmitJob(ctx context.Context, job *JobRequest) (*JobResult, err
 	}, nil
 }
 
-func (q *Queue) NotFound(w http.ResponseWriter, r *http.Request) {
+func (q *Middle) NotFound(w http.ResponseWriter, r *http.Request) {
 	logrus.Errorf("HTTPResponder not found from request %+v", r)
 	//recordHTTPNotFound(r) // TODO metrics
 	http.NotFound(w, r)
 }
 
-func (q *Queue) Error(w http.ResponseWriter, r *http.Request, err error, statusCode int) {
+func (q *Middle) Error(w http.ResponseWriter, r *http.Request, err error, statusCode int) {
 	logrus.Errorf("HTTPResponder error %s with code %d from request %+v", err.Error(), statusCode, r)
 	//recordHTTPError(r, err, statusCode) // TODO metrics
 	http.Error(w, err.Error(), statusCode)

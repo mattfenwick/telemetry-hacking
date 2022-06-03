@@ -1,10 +1,10 @@
 package cli
 
 import (
-	"github.com/mattfenwick/telemetry-hacking/pkg/queue"
-	"github.com/mattfenwick/telemetry-hacking/pkg/server"
+	"github.com/mattfenwick/telemetry-hacking/pkg/bottom"
+	"github.com/mattfenwick/telemetry-hacking/pkg/middle"
+	"github.com/mattfenwick/telemetry-hacking/pkg/top"
 	"github.com/mattfenwick/telemetry-hacking/pkg/utils"
-	"github.com/mattfenwick/telemetry-hacking/pkg/worker"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"log"
@@ -32,9 +32,9 @@ func setupRootCommand() *cobra.Command {
 		Args: cobra.ExactArgs(0),
 	}
 
-	command.AddCommand(worker.Setup())
-	command.AddCommand(queue.Setup())
-	command.AddCommand(server.Setup())
+	command.AddCommand(bottom.Setup())
+	command.AddCommand(middle.Setup())
+	command.AddCommand(top.Setup())
 
 	command.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		return utils.SetUpLogger(flags.Verbosity)

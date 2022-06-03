@@ -1,10 +1,10 @@
-package server
+package top
 
 import (
 	"context"
 	"fmt"
-	"github.com/mattfenwick/telemetry-hacking/pkg/queue"
-	"github.com/mattfenwick/telemetry-hacking/pkg/worker"
+	"github.com/mattfenwick/telemetry-hacking/pkg/bottom"
+	"github.com/mattfenwick/telemetry-hacking/pkg/middle"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
@@ -14,17 +14,17 @@ import (
 )
 
 type Config struct {
-	Port      int
-	JaegerURL string
-	QueueHost string
-	QueuePort int
+	Port       int
+	JaegerURL  string
+	MiddleHost string
+	MiddlePort int
 }
 
 func Setup() *cobra.Command {
 	var configPath string
 
 	command := &cobra.Command{
-		Use: "server",
+		Use: "top",
 		Run: func(cmd *cobra.Command, positionalArgs []string) {
 			Run(configPath)
 		},
@@ -41,7 +41,7 @@ func Run(configPath string) {
 	logrus.Infof("server config: %+v", config)
 
 	// start telemetry setup
-	tp, err := utils.SetUpTracerProvider(config.JaegerURL, "server")
+	tp, err := utils.SetUpTracerProvider(config.JaegerURL, "top")
 	utils.DoOrDie(err)
 
 	outerContext, cancel := context.WithCancel(context.Background())
@@ -54,9 +54,9 @@ func Run(configPath string) {
 	}(outerContext)
 	// end telemetry setup
 
-	queueClient := queue.NewClient(config.QueueHost, config.QueuePort)
+	middleClient := middle.NewClient(config.MiddleHost, config.MiddlePort)
 
-	requests := []*worker.Function{
+	requests := []*bottom.Function{
 		{Name: "+"},
 		{Name: "*"},
 		{Name: "sleep", Args: []int{3111, 2111, 1111}},
@@ -76,7 +76,7 @@ func Run(configPath string) {
 		j := i
 		group.Go(func() error {
 			logrus.Infof("issuing request %d", j)
-			result, jobErr := queueClient.SubmitJob(errorGroupContext, &queue.JobRequest{
+			result, jobErr := middleClient.SubmitJob(errorGroupContext, &middle.JobRequest{
 				JobId:    fmt.Sprintf("%d", j),
 				Function: requests[j].Name,
 				Args:     requests[j].Args,
@@ -87,12 +87,12 @@ func Run(configPath string) {
 	}
 	_ = group.Wait()
 
-	//state, err := queueClient.GetState()
+	//state, err := middleClient.GetState()
 	//utils.DoOrDie(err)
 	//logrus.Infof("state: \n%+v\n", state)
 
 	// TODO
-	//server := NewServer()
+	//server := NewTop()
 	//
 	//logrus.Infof("instantiated server: %+v", server)
 	//SetupHTTPServer(server)

@@ -1,4 +1,4 @@
-package worker
+package middle
 
 import (
 	"context"
@@ -13,16 +13,17 @@ import (
 )
 
 type Config struct {
-	Port        int
-	JaegerURL   string
-	ThreadCount int
+	Port       int
+	JaegerURL  string
+	BottomHost string
+	BottomPort int
 }
 
 func Setup() *cobra.Command {
 	var configPath string
 
 	command := &cobra.Command{
-		Use: "worker",
+		Use: "middle",
 		Run: func(cmd *cobra.Command, positionalArgs []string) {
 			Run(configPath)
 		},
@@ -39,7 +40,7 @@ func Run(configPath string) {
 	logrus.Infof("queue config: %+v", config)
 
 	// start telemetry setup
-	tp, err := utils.SetUpTracerProvider(config.JaegerURL, "worker")
+	tp, err := utils.SetUpTracerProvider(config.JaegerURL, "middle")
 	utils.DoOrDie(err)
 
 	outerContext, cancel := context.WithCancel(context.Background())
@@ -53,10 +54,10 @@ func Run(configPath string) {
 	// end telemetry setup
 
 	stop := make(chan struct{})
-	worker := NewWorker(config.ThreadCount, stop)
+	queue := NewMiddle(stop, config.BottomHost, config.BottomPort)
 
-	logrus.Infof("instantiated worker: %+v", worker)
-	SetupHTTPServer(worker)
+	logrus.Infof("instantiated middle: %+v", queue)
+	SetupHTTPServer(queue)
 
 	addr := fmt.Sprintf(":%d", config.Port)
 	logrus.Infof("starting HTTP server on port %d", config.Port)

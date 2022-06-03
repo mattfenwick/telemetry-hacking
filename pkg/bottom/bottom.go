@@ -1,4 +1,4 @@
-package worker
+package bottom
 
 import (
 	"context"
@@ -12,13 +12,13 @@ import (
 	"time"
 )
 
-type Worker struct {
+type Bottom struct {
 	ThreadCount int
 	Actions     chan func()
 	Tracer      trace.Tracer
 }
 
-func NewWorker(threadCount int, stop <-chan struct{}) *Worker {
+func NewBottom(threadCount int, stop <-chan struct{}) *Bottom {
 	actions := make(chan func())
 	for i := 0; i < threadCount; i++ {
 		go func() {
@@ -32,7 +32,7 @@ func NewWorker(threadCount int, stop <-chan struct{}) *Worker {
 			}
 		}()
 	}
-	return &Worker{
+	return &Bottom{
 		ThreadCount: threadCount,
 		Actions:     actions,
 		Tracer:      otel.Tracer("worker"),
@@ -74,7 +74,7 @@ func runJob(name string, args []int) (int, error) {
 	}
 }
 
-func (w *Worker) RunFunction(ctx context.Context, f *Function) (*FunctionResult, int, error) {
+func (w *Bottom) RunFunction(ctx context.Context, f *Function) (*FunctionResult, int, error) {
 	wg := sync.WaitGroup{}
 	var result int
 	var err error
@@ -103,13 +103,13 @@ func (w *Worker) RunFunction(ctx context.Context, f *Function) (*FunctionResult,
 	}
 }
 
-func (w *Worker) NotFound(writer http.ResponseWriter, r *http.Request) {
+func (w *Bottom) NotFound(writer http.ResponseWriter, r *http.Request) {
 	logrus.Errorf("HTTPResponder not found from request %+v", r)
 	//recordHTTPNotFound(r) // TODO metrics
 	http.NotFound(writer, r)
 }
 
-func (w *Worker) Error(writer http.ResponseWriter, r *http.Request, err error, statusCode int) {
+func (w *Bottom) Error(writer http.ResponseWriter, r *http.Request, err error, statusCode int) {
 	logrus.Errorf("HTTPResponder error %s with code %d from request %+v", err.Error(), statusCode, r)
 	//recordHTTPError(r, err, statusCode) // TODO metrics
 	http.Error(writer, err.Error(), statusCode)
