@@ -1,0 +1,18 @@
+syntax = "proto3";
+package bottom;
+
+option go_package = "github.com/mattfenwick/telemetry-hacking/pkg/bottom/generated";
+
+
+service Bottom {
+  rpc RunFunction(Function) returns (FunctionResult) {}
+}
+
+message Function {
+  string Name = 1;
+  repeated int32 Args = 2;
+}
+
+message FunctionResult {
+  int32 value = 1;
+}

@@ -16,6 +16,7 @@ type Config struct {
 	Port        int
 	JaegerURL   string
 	ThreadCount int
+	GRPCPort    int
 }
 
 func Setup() *cobra.Command {
@@ -53,10 +54,14 @@ func Run(configPath string) {
 	// end telemetry setup
 
 	stop := make(chan struct{})
-	worker := NewBottom(config.ThreadCount, stop)
+	bottom := NewBottom(config.ThreadCount, stop)
 
-	logrus.Infof("instantiated worker: %+v", worker)
-	SetupHTTPServer(worker)
+	grpc, err := NewGRPCServer(config.GRPCPort, bottom)
+	utils.DoOrDie(err)
+	logrus.Infof("started grpc server: %+v", grpc)
+
+	logrus.Infof("instantiated bottom: %+v", bottom)
+	SetupHTTPServer(bottom)
 
 	addr := fmt.Sprintf(":%d", config.Port)
 	logrus.Infof("starting HTTP server on port %d", config.Port)

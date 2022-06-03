@@ -22,7 +22,7 @@ type FunctionResult struct {
 }
 
 type Responder interface {
-	RunFunction(ctx context.Context, function *Function) (*FunctionResult, int, error)
+	RunFunctionHttp(ctx context.Context, function *Function) (*FunctionResult, error)
 
 	NotFound(w http.ResponseWriter, r *http.Request)
 	Error(w http.ResponseWriter, r *http.Request, err error, statusCode int)
@@ -50,12 +50,12 @@ func SetupHTTPServer(responder Responder) {
 				responder.Error(w, r, err, 400)
 				return
 			}
-			jobStatus, code, err := responder.RunFunction(ctx, &f)
-			header := w.Header()
-			header.Set(http.CanonicalHeaderKey("content-type"), "application/json")
-			if code < 200 || code > 299 {
-				http.Error(w, err.Error(), code)
+			jobStatus, err := responder.RunFunctionHttp(ctx, &f)
+			if err != nil {
+				http.Error(w, err.Error(), 400)
 			} else {
+				header := w.Header()
+				header.Set(http.CanonicalHeaderKey("content-type"), "application/json")
 				fmt.Fprint(w, utils.DumpJSON(jobStatus))
 			}
 		default:

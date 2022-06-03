@@ -13,10 +13,11 @@ import (
 )
 
 type Config struct {
-	Port       int
-	JaegerURL  string
-	BottomHost string
-	BottomPort int
+	Port           int
+	JaegerURL      string
+	BottomHost     string
+	BottomPort     int
+	BottomGRPCPort int
 }
 
 func Setup() *cobra.Command {
@@ -54,7 +55,7 @@ func Run(configPath string) {
 	// end telemetry setup
 
 	stop := make(chan struct{})
-	queue := NewMiddle(stop, config.BottomHost, config.BottomPort)
+	queue := NewMiddle(stop, config.BottomHost, config.BottomPort, config.BottomGRPCPort)
 
 	logrus.Infof("instantiated middle: %+v", queue)
 	SetupHTTPServer(queue)

@@ -1,5 +1,6 @@
 {
   "Port": 8003,
   "JaegerURL": "http://localhost:14268/api/traces",
-  "ThreadCount": 3
+  "ThreadCount": 3,
+  "GRPCPort": 9003
 }

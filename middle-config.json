@@ -2,5 +2,6 @@
   "Port": 8002,
   "JaegerURL": "http://localhost:14268/api/traces",
   "BottomHost": "localhost",
-  "BottomPort": 8003
+  "BottomPort": 8003,
+  "BottomGRPCPort": 9003
 }

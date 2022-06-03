@@ -2,6 +2,7 @@ package bottom
 
 import (
 	"context"
+	bottomProto "github.com/mattfenwick/telemetry-hacking/pkg/bottom/protobuf"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel"
@@ -16,6 +17,8 @@ type Bottom struct {
 	ThreadCount int
 	Actions     chan func()
 	Tracer      trace.Tracer
+
+	bottomProto.UnimplementedBottomServer
 }
 
 func NewBottom(threadCount int, stop <-chan struct{}) *Bottom {
@@ -74,7 +77,26 @@ func runJob(name string, args []int) (int, error) {
 	}
 }
 
-func (w *Bottom) RunFunction(ctx context.Context, f *Function) (*FunctionResult, int, error) {
+func myMap[A, B any](f func(a A) B, xs []A) []B {
+	var out []B
+	for _, x := range xs {
+		out = append(out, f(x))
+	}
+	return out
+}
+
+func (w *Bottom) RunFunction(ctx context.Context, f *bottomProto.Function) (*bottomProto.FunctionResult, error) {
+	result, err := w.RunFunctionHttp(ctx, &Function{
+		Name: f.Name,
+		Args: myMap(func(x int32) int { return int(x) }, f.Args),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &bottomProto.FunctionResult{Value: int32(result.Value)}, nil
+}
+
+func (w *Bottom) RunFunctionHttp(ctx context.Context, f *Function) (*FunctionResult, error) {
 	wg := sync.WaitGroup{}
 	var result int
 	var err error
@@ -92,14 +114,14 @@ func (w *Bottom) RunFunction(ctx context.Context, f *Function) (*FunctionResult,
 		wg.Wait()
 		span.AddEvent("finished function run")
 		if err == nil {
-			return &FunctionResult{Value: result}, 200, nil
+			return &FunctionResult{Value: result}, nil
 		} else {
-			return nil, 400, err
+			return nil, err
 		}
 	default:
 		logrus.Warnf("worker service unavailable")
 		span.SetStatus(codes.Error, "worker service unavailable")
-		return nil, 500, errors.Errorf("worker service unavailable")
+		return nil, errors.Errorf("worker service unavailable")
 	}
 }
 

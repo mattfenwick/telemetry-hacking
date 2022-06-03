@@ -3,6 +3,8 @@ package middle
 import (
 	"context"
 	"github.com/mattfenwick/telemetry-hacking/pkg/bottom"
+	"github.com/mattfenwick/telemetry-hacking/pkg/utils"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -13,10 +15,13 @@ type Middle struct {
 	//Actions      chan func()
 	//Jobs         map[JobState][]*JobStatus
 	//Tracer       trace.Tracer
-	BottomClient *bottom.Client
+	BottomClient     *bottom.Client
+	BottomGRPCClient *bottom.GRPCClient
 }
 
-func NewMiddle(stop <-chan struct{}, workerHost string, workerPort int) *Middle {
+func NewMiddle(stop <-chan struct{}, workerHost string, workerPort int, grpcPort int) *Middle {
+	grpcClient, err := bottom.NewGRPCClient(otel.Tracer("bottom/grpc-client"), workerHost, grpcPort)
+	utils.DoOrDie(err)
 	return &Middle{
 		//Actions: actionsChannel,
 		//Jobs: map[JobState][]*JobStatus{
@@ -26,7 +31,8 @@ func NewMiddle(stop <-chan struct{}, workerHost string, workerPort int) *Middle 
 		//	JobStateTodo:       nil,
 		//},
 		//Tracer:       otel.Tracer("queue"),
-		BottomClient: bottom.NewClient(otel.Tracer("queue/client"), workerHost, workerPort),
+		BottomClient:     bottom.NewClient(otel.Tracer("bottom/http-client"), workerHost, workerPort),
+		BottomGRPCClient: grpcClient,
 	}
 }
 
@@ -60,9 +66,26 @@ func NewMiddle(stop <-chan struct{}, workerHost string, workerPort int) *Middle 
 
 // TODO start, finish, fail job
 
-func (q *Middle) SubmitJob(ctx context.Context, job *JobRequest) (*JobResult, error) {
+func (q *Middle) SubmitJobGRPC(ctx context.Context, job *JobRequest) (*JobResult, error) {
 	span := trace.SpanFromContext(ctx)
-	span.AddEvent("starting submitjob action")
+	span.AddEvent("starting submitjob-grpc action")
+
+	result, err := q.BottomGRPCClient.RunFunction(ctx, &bottom.Function{
+		Name: job.Function,
+		Args: job.Args,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &JobResult{
+		Request: job,
+		Answer:  result.Value,
+	}, nil
+}
+
+func (q *Middle) SubmitJobHttp(ctx context.Context, job *JobRequest) (*JobResult, error) {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("starting submitjob-http action")
 
 	result, err := q.BottomClient.RunFunction(ctx, &bottom.Function{
 		Name: job.Function,
@@ -75,6 +98,26 @@ func (q *Middle) SubmitJob(ctx context.Context, job *JobRequest) (*JobResult, er
 		Request: job,
 		Answer:  result.Value,
 	}, nil
+}
+
+func (q *Middle) SubmitJob(ctx context.Context, job *JobRequest) (*JobResult, error) {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("starting submitjob action")
+
+	grpcResult, err := q.SubmitJobGRPC(ctx, job)
+	if err != nil {
+		return nil, err
+	}
+	httpResult, err := q.SubmitJobHttp(ctx, job)
+	if err != nil {
+		return nil, err
+	}
+
+	if grpcResult.Answer != httpResult.Answer {
+		return nil, errors.Errorf("got different answers from grpc and http: %d vs %d", grpcResult.Answer, httpResult.Answer)
+	}
+
+	return grpcResult, nil
 }
 
 func (q *Middle) NotFound(w http.ResponseWriter, r *http.Request) {
