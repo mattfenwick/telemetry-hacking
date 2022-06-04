@@ -20,11 +20,13 @@ docker run -d --name jaeger \
   jaegertracing/all-in-one:1.35
 
 
-go run cmd/main.go bottom --config-path bottom-config.json -v debug &
+pushd ../..
+  go run cmd/main.go bottom --config-path bottom-config.json -v debug &
 
-go run cmd/main.go middle --config-path middle-config.json -v debug &
+  go run cmd/main.go middle --config-path middle-config.json -v debug &
 
-go run cmd/main.go top --config-path top-config.json -v debug
+  go run cmd/main.go top --config-path top-config.json -v debug
+popd
 
 # go here in your web browser to see the Jaeger UI:
 #   http://localhost:16686

@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: Service
+metadata:
+  #  annotations:
+  #    prometheus.io/port: "9153"
+  #    prometheus.io/scrape: "true"
+  name: bottom
+spec:
+  ports:
+    - name: http
+      port: 8003
+      protocol: TCP
+      targetPort: 8003
+    - name: grpc
+      port: 9003
+      protocol: TCP
+      targetPort: 9003
+  selector:
+    th: bottom
+---
+apiVersion: v1
+data:
+  config.json: |
+    {
+      "Port": 8003,
+      "JaegerURL": "http://my-jf-jaeger-collector:14268/api/traces",
+      "ThreadCount": 3,
+      "GRPCPort": 9003
+    }
+kind: ConfigMap
+metadata:
+  name: bottom-config
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bottom
+  labels:
+    th: bottom
+spec:
+  containers:
+    - image: docker.io/mfenwick100/telemetry-hacking:latest
+      imagePullPolicy: IfNotPresent
+      command: ["/opt/th", "bottom", "--config-path", "/tmp/config.json", "-v", "debug"]
+      name: bottom
+      ports:
+        - containerPort: 8003
+          name: http
+          protocol: TCP
+        - containerPort: 9003
+          name: grpc
+          protocol: TCP
+      resources: {}
+      securityContext: {}
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+        - mountPath: /tmp
+          name: config
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+  terminationGracePeriodSeconds: 30
+  volumes:
+    - configMap:
+        name: bottom-config
+      name: config
+---

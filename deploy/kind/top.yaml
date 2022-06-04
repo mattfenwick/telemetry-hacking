@@ -1,0 +1,42 @@
+apiVersion: v1
+data:
+  config.json: |
+    {
+      "Port": 8001,
+      "JaegerURL": "http://my-jf-jaeger-collector:14268/api/traces",
+      "MiddleHost": "middle",
+      "MiddlePort": 8002
+    }
+kind: ConfigMap
+metadata:
+  name: top-config
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: top
+spec:
+  containers:
+    - image: docker.io/mfenwick100/telemetry-hacking:latest
+      imagePullPolicy: IfNotPresent
+      command: ["/opt/th", "top", "--config-path", "/tmp/config.json", "-v", "debug"]
+      name: top
+      ports:
+        - containerPort: 8001
+          name: http
+          protocol: TCP
+      resources: {}
+      securityContext: {}
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+        - mountPath: /tmp
+          name: config
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+  terminationGracePeriodSeconds: 30
+  volumes:
+    - configMap:
+        name: top-config
+      name: config
+---
