@@ -1,0 +1,5 @@
+opentelemetry-javaagent.jar
+
+target/
+
+.idea/
