@@ -43,6 +43,8 @@ func SetupHTTPServer(responder Responder) {
 				responder.Error(w, r, err, 400)
 				return
 			}
+			logrus.Debugf("request body: <%s>", body)
+
 			var f Function
 			err = utils.ParseJson(&f, body)
 			if err != nil {

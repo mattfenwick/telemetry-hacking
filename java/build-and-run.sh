@@ -7,7 +7,12 @@ IMAGE=docker.io/mfenwick100/hacking-java:latest
 
 mvn clean compile assembly:single
 
-java -jar target/hacking-1.0-SNAPSHOT-jar-with-dependencies.jar
+java -javaagent:opentelemetry-javaagent.jar \
+  -Dotel.metrics.exporter=none \
+  -Dotel.service.name=localhost \
+  -Dotel.traces.port=16686 \
+  -Dotel.traces.exporter=jaeger \
+  -jar target/hacking-1.0-SNAPSHOT-jar-with-dependencies.jar
 
 docker build -t $IMAGE .
 
