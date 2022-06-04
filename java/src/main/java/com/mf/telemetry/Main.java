@@ -76,10 +76,6 @@ public class Main {
 
     public static String issueJsonRequest(String host, String name, int[] args) throws IOException {
         JSONObject data = new JSONObject();
-        JsonArray jsonArgs = new JsonArray();
-//        for (int x : args) {
-//            jsonArgs.add(x);
-//        }
         data.put("name", name);
         data.put("args", args);
 
