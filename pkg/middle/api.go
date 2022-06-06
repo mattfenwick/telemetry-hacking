@@ -11,18 +11,18 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type JobState string
-
-const (
-	//JobStateTodo       JobState = "JobStateTodo"
-	//JobStateInProgress JobState = "JobStateInProgress"
-	JobStateError   JobState = "JobStateError"
-	JobStateSuccess JobState = "JobStateSuccess"
-)
-
-func (s JobState) String() string {
-	return string(s)
-}
+//type JobState string
+//
+//const (
+//	//JobStateTodo       JobState = "JobStateTodo"
+//	//JobStateInProgress JobState = "JobStateInProgress"
+//	JobStateError   JobState = "JobStateError"
+//	JobStateSuccess JobState = "JobStateSuccess"
+//)
+//
+//func (s JobState) String() string {
+//	return string(s)
+//}
 
 type JobResult struct {
 	Request *JobRequest

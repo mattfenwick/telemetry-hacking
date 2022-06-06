@@ -3,17 +3,17 @@
 set -xv
 set -euo pipefail
 
-IMAGE=docker.io/mfenwick100/hacking-java:latest
-
-mvn clean compile assembly:single
+./build.sh
 
 java -javaagent:opentelemetry-javaagent.jar \
   -Dotel.metrics.exporter=none \
   -Dotel.service.name=localhost \
   -Dotel.traces.port=16686 \
   -Dotel.traces.exporter=jaeger \
-  -jar target/hacking-1.0-SNAPSHOT-jar-with-dependencies.jar
+  -jar target/hacking-1.0-SNAPSHOT-jar-with-dependencies.jar \
+  localhost
 
-docker build -t $IMAGE .
 
-docker run $IMAGE
+#IMAGE=docker.io/mfenwick100/hacking-java:latest
+#
+#docker run $IMAGE

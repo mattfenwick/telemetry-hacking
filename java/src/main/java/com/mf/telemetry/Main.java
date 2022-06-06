@@ -1,10 +1,8 @@
 package com.mf.telemetry;
 
-import java.io.IOException;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.InetSocketAddress;
 
-import com.google.gson.JsonArray;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
@@ -12,21 +10,54 @@ import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.Headers;
 import java.nio.charset.StandardCharsets;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
-import java.io.BufferedReader;
-import java.io.DataOutputStream;
-import java.io.InputStreamReader;
+
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
 
+class JobRequest {
+    String Function;
+    ArrayList<Integer> Args;
+
+    JobRequest(JSONObject o) {
+        Object f = o.get("Function");
+        if (f == null) {
+            throw new RuntimeException("missing 'Function' key");
+        }
+        System.out.println("what's my class? " + f.getClass().toString() + " " + o.get("Args").getClass().toString());
+        this.Function = (String) f;
+
+        ArrayList<Integer> args = new ArrayList<>();
+        JSONArray as = (JSONArray) o.get("Args");
+
+        for (Iterator<Object> it = as.iterator(); it.hasNext(); ) {
+            args.add((Integer) it.next());
+        }
+        this.Args = args;
+    }
+
+    JSONObject asJson() {
+        JSONObject o = new JSONObject();
+        o.put("Function", this.Function);
+        o.put("Args", this.Args);
+        return o;
+    }
+}
 
 public class Main {
 
     public static void main(String[] args) throws IOException {
-        System.out.println("starting java telemetry hack");
+        System.out.println("starting java telemetry hack with args: " + new JSONArray(args).toString());
+
+        String bottomHost = args[0];
 
         try {
-            String response = issueJsonRequest("localhost", "sleep", new int[]{1});
+            String response = issueJsonRequest(bottomHost, "sleep", Arrays.asList(1));
             System.out.println("response? " + response);
         } catch (Exception e) {
             System.out.println("OOPS!  failed to issue request: " + e.getMessage());
@@ -34,7 +65,7 @@ public class Main {
 
         HttpServer server = HttpServer.create(new InetSocketAddress(8004), 0);
         server.createContext("/example", new JobHandler());
-        addJobContext(server);
+        addJobContext(server, bottomHost);
         server.setExecutor(null);
         server.start();
     }
@@ -50,16 +81,25 @@ public class Main {
         }
     }
 
-    static void addJobContext(HttpServer server) throws IOException {
+    static void addJobContext(HttpServer server, String bottomHost) {
         server.createContext("/job", he -> {
-            try {
+            try (he) {
                 final Headers headers = he.getResponseHeaders();
                 final String requestMethod = he.getRequestMethod().toUpperCase();
+
+                String requestBody = readRequestBody(he.getRequestBody());
+                JSONObject o = new JSONObject(requestBody);
+                System.out.println("what did I get? " + o.toString() + " " + requestMethod + " <" + requestBody + ">");
+
+                JobRequest jr = new JobRequest(o);
+
+                String bottomResponse = issueJsonRequest(bottomHost, jr.Function, jr.Args);
+
                 switch (requestMethod) {
                     case "POST":
-                        final String responseBody = "{\"abc\": 123}";
                         headers.set("Content-Type", String.format("application/json; charset=%s", StandardCharsets.UTF_8));
-                        final byte[] rawResponseBody = responseBody.getBytes(StandardCharsets.UTF_8);
+//                        final byte[] rawResponseBody = jr.asJson().toString().getBytes(StandardCharsets.UTF_8);
+                        final byte[] rawResponseBody = bottomResponse.getBytes(StandardCharsets.UTF_8);
                         he.sendResponseHeaders(200, rawResponseBody.length);
                         he.getResponseBody().write(rawResponseBody);
                         break;
@@ -68,13 +108,25 @@ public class Main {
                         he.sendResponseHeaders(405, -1);
                         break;
                 }
-            } finally {
-                he.close();
             }
         });
     }
 
-    public static String issueJsonRequest(String host, String name, int[] args) throws IOException {
+    public static String readRequestBody(InputStream is) throws IOException {
+        InputStreamReader isr =  new InputStreamReader(is,"utf-8");
+        BufferedReader br = new BufferedReader(isr);
+        String text = "";
+        while (true) {
+            String value = br.readLine();
+            if (value == null) {
+                break;
+            }
+            text += value;
+        }
+        return text;
+    }
+
+    public static String issueJsonRequest(String host, String name, List<Integer> args) throws IOException {
         JSONObject data = new JSONObject();
         data.put("name", name);
         data.put("args", args);
