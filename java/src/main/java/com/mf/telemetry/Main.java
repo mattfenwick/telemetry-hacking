@@ -52,18 +52,19 @@ class JobRequest {
 public class Main {
 
     public static void main(String[] args) throws IOException {
-        System.out.println("starting java telemetry hack with args: " + new JSONArray(args).toString());
+        System.out.println("starting java telemetry hack with args: " + " " + args.length + " " + new JSONArray(args).toString());
 
         String bottomHost = args[0];
 
-        try {
-            String response = issueJsonRequest(bottomHost, "sleep", Arrays.asList(1));
-            System.out.println("response? " + response);
-        } catch (Exception e) {
-            System.out.println("OOPS!  failed to issue request: " + e.getMessage());
-        }
+//        try {
+//            String response = issueJsonRequest(bottomHost, "sleep", Arrays.asList(1));
+//            System.out.println("response? " + response);
+//        } catch (Exception e) {
+//            System.out.println("OOPS!  failed to issue request: " + e.getMessage());
+//        }
 
-        HttpServer server = HttpServer.create(new InetSocketAddress(8004), 0);
+        // TODO need multiple threads?
+        HttpServer server = HttpServer.create(new InetSocketAddress(8002), 0);
         server.createContext("/example", new JobHandler());
         addJobContext(server, bottomHost);
         server.setExecutor(null);

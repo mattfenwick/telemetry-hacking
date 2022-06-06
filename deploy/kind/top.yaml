@@ -4,7 +4,7 @@ data:
     {
       "Port": 8001,
       "JaegerURL": "http://my-jf-jaeger-collector:14268/api/traces",
-      "MiddleHost": "middle",
+      "MiddleHost": "middle-java",
       "MiddlePort": 8002
     }
 kind: ConfigMap

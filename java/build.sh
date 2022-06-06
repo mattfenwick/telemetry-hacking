@@ -3,7 +3,7 @@
 set -xv
 set -euo pipefail
 
-IMAGE=docker.io/mfenwick100/hacking-java:latest
+IMAGE=docker.io/mfenwick100/telemetry-hacking-java:latest
 
 mvn clean compile assembly:single
 
