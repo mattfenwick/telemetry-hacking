@@ -15,20 +15,20 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-func initTracer() (*tracesdk.TracerProvider, error) {
-	exporter, err := stdout.New(stdout.WithPrettyPrint())
-	if err != nil {
-		return nil, err
-	}
-
-	tp := tracesdk.NewTracerProvider(
-		tracesdk.WithSampler(tracesdk.AlwaysSample()),
-		tracesdk.WithBatcher(exporter),
-	)
-	otel.SetTracerProvider(tp)
-	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
-	return tp, nil
-}
+//func initTracer() (*tracesdk.TracerProvider, error) {
+//	exporter, err := stdout.New(stdout.WithPrettyPrint())
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	tp := tracesdk.NewTracerProvider(
+//		tracesdk.WithSampler(tracesdk.AlwaysSample()),
+//		tracesdk.WithBatcher(exporter),
+//	)
+//	otel.SetTracerProvider(tp)
+//	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
+//	return tp, nil
+//}
 
 func SetUpTracerProvider(aggregatorURL string, service string) (*tracesdk.TracerProvider, error) {
 	var tracerProvider *tracesdk.TracerProvider

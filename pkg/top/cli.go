@@ -75,7 +75,7 @@ func Run(configPath string) {
 	for i := 0; i < len(requests); i++ {
 		j := i
 		group.Go(func() error {
-			logrus.Infof("issuing request %d", j)
+			logrus.Infof("issuing request %d: %+v", j, utils.DumpJSON(requests[j]))
 			result, jobErr := middleClient.SubmitJob(errorGroupContext, &middle.JobRequest{
 				JobId:    fmt.Sprintf("%d", j),
 				Function: requests[j].Name,

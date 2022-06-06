@@ -51,7 +51,7 @@ func (c *Client) RunFunction(methodContext context.Context, f *Function) (*Funct
 		utils.DoOrDie(err)
 		return request
 	}
-	text, err := utils.IssueRequest(c.HttpClient, makeRequest, methodContext, c.Tracer)
+	text, err := utils.IssueRequest(c.HttpClient, "bottom/client", makeRequest, methodContext, c.Tracer)
 	if err != nil {
 		return nil, err
 	}

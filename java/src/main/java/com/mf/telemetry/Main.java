@@ -10,13 +10,27 @@ import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.Headers;
 import java.nio.charset.StandardCharsets;
 
+import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.context.Context;
+import io.opentelemetry.context.Scope;
+import io.opentelemetry.context.propagation.TextMapGetter;
+import io.opentelemetry.context.propagation.TextMapSetter;
+import io.opentelemetry.exporter.jaeger.JaegerGrpcSpanExporter;
+import io.opentelemetry.exporter.jaeger.JaegerGrpcSpanExporterBuilder;
+import io.opentelemetry.sdk.OpenTelemetrySdk;
+import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator;
+import io.opentelemetry.context.propagation.ContextPropagators;
+import io.opentelemetry.exporter.logging.LoggingSpanExporter;
+import io.opentelemetry.sdk.trace.SdkTracerProvider;
+import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
@@ -54,6 +68,21 @@ public class Main {
     public static void main(String[] args) throws IOException {
         System.out.println("starting java telemetry hack with args: " + " " + args.length + " " + new JSONArray(args).toString());
 
+//        SdkTracerProvider sdkTracerProvider =
+//                SdkTracerProvider.builder()
+//                        .addSpanProcessor(JaegerGrpcSpanExporterBuilder.create(new JaegerGrpcSpanExporter()))
+//                        .build();
+//
+//        OpenTelemetry openTelemetry = OpenTelemetrySdk.builder()
+//                .setTracerProvider(sdkTracerProvider)
+//                .setPropagators(ContextPropagators.create(Jae.getInstance())) // TODO B3 ?
+//                .setPropagators(ContextPropagators.create(W3CTraceContextPropagator.getInstance())) // TODO B3 ?
+//                .buildAndRegisterGlobal();
+//
+//        Jaeg
+//
+//        System.out.println("opentelemetry sdk is configured: " + openTelemetry.toString());
+
         String bottomHost = args[0];
 
 //        try {
@@ -85,6 +114,10 @@ public class Main {
     static void addJobContext(HttpServer server, String bottomHost) {
         server.createContext("/job", he -> {
             try (he) {
+//                OpenTelemetry openTelemetry = GlobalOpenTelemetry.get();
+//                Context extractedContext = openTelemetry.getPropagators().getTextMapPropagator()
+//                        .extract(Context.current(), httpExchange, getter);
+
                 final Headers headers = he.getResponseHeaders();
                 final String requestMethod = he.getRequestMethod().toUpperCase();
 
@@ -94,20 +127,26 @@ public class Main {
 
                 JobRequest jr = new JobRequest(o);
 
-                String bottomResponse = issueJsonRequest(bottomHost, jr.Function, jr.Args);
+                Context extractedContext = GlobalOpenTelemetry.get().getPropagators().getTextMapPropagator()
+                        .extract(Context.current(), he, getter);
 
-                switch (requestMethod) {
-                    case "POST":
-                        headers.set("Content-Type", String.format("application/json; charset=%s", StandardCharsets.UTF_8));
+                try (Scope scope = extractedContext.makeCurrent()) {
+
+                    String bottomResponse = issueJsonRequest(bottomHost, jr.Function, jr.Args);
+
+                    switch (requestMethod) {
+                        case "POST":
+                            headers.set("Content-Type", String.format("application/json; charset=%s", StandardCharsets.UTF_8));
 //                        final byte[] rawResponseBody = jr.asJson().toString().getBytes(StandardCharsets.UTF_8);
-                        final byte[] rawResponseBody = bottomResponse.getBytes(StandardCharsets.UTF_8);
-                        he.sendResponseHeaders(200, rawResponseBody.length);
-                        he.getResponseBody().write(rawResponseBody);
-                        break;
-                    default:
-                        headers.set("Allow", "POST");
-                        he.sendResponseHeaders(405, -1);
-                        break;
+                            final byte[] rawResponseBody = bottomResponse.getBytes(StandardCharsets.UTF_8);
+                            he.sendResponseHeaders(200, rawResponseBody.length);
+                            he.getResponseBody().write(rawResponseBody);
+                            break;
+                        default:
+                            headers.set("Allow", "POST");
+                            he.sendResponseHeaders(405, -1);
+                            break;
+                    }
                 }
             }
         });
@@ -139,6 +178,8 @@ public class Main {
         httpConnection.setRequestProperty("Content-Type", "application/json");
         httpConnection.setRequestProperty("Accept", "application/json");
 
+        GlobalOpenTelemetry.get().getPropagators().getTextMapPropagator().inject(Context.current(), httpConnection, setter);
+
         System.out.println("encoded? " + data.toString());
 
         DataOutputStream wr = new DataOutputStream(httpConnection.getOutputStream());
@@ -161,5 +202,30 @@ public class Main {
 
         return content.toString();
     }
+
+    static TextMapSetter<HttpURLConnection> setter =
+        new TextMapSetter<HttpURLConnection>() {
+            @Override
+            public void set(HttpURLConnection carrier, String key, String value) {
+                // Insert the context as Header
+                carrier.setRequestProperty(key, value);
+            }
+        };
+
+    static TextMapGetter<HttpExchange> getter =
+        new TextMapGetter<>() {
+            @Override
+            public String get(HttpExchange carrier, String key) {
+                if (carrier.getRequestHeaders().containsKey(key)) {
+                    return carrier.getRequestHeaders().get(key).get(0);
+                }
+                return null;
+            }
+
+            @Override
+            public Iterable<String> keys(HttpExchange carrier) {
+                return carrier.getRequestHeaders().keySet();
+            }
+        };
 
 }

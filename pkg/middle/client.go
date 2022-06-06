@@ -48,7 +48,7 @@ func (c *Client) SubmitJob(methodContext context.Context, job *JobRequest) (*Job
 		utils.DoOrDie(err)
 		return request
 	}
-	text, err := utils.IssueRequest(c.HttpClient, makeRequest, methodContext, c.Tracer)
+	text, err := utils.IssueRequest(c.HttpClient, "middle/request", makeRequest, methodContext, c.Tracer)
 	if err != nil {
 		return nil, err
 	}

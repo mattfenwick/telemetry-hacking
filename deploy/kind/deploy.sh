@@ -17,7 +17,7 @@ helm install my-jf jaeger --repo https://jaegertracing.github.io/helm-charts -n 
 kind load docker-image $IMAGE
 kind load docker-image $JAVA_IMAGE
 
-kubectl apply -f bottom.yaml -n $NS
-kubectl apply -f middle.yaml -n $NS
-kubectl apply -f middle-java.yaml -n $NS
-kubectl apply -f top.yaml -n $NS
+kubectl apply -f bottom.yaml -n "$NS"
+kubectl apply -f middle.yaml -n "$NS"
+kubectl apply -f middle-java.yaml -n "$NS"
+kubectl apply -f top.yaml -n "$NS"
