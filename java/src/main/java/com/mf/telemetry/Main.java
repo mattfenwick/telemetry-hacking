@@ -127,6 +127,7 @@ public class Main {
 
                 JobRequest jr = new JobRequest(o);
 
+                // see: https://opentelemetry.io/docs/instrumentation/java/manual/#context-propagation
                 Context extractedContext = GlobalOpenTelemetry.get().getPropagators().getTextMapPropagator()
                         .extract(Context.current(), he, getter);
 
@@ -178,6 +179,7 @@ public class Main {
         httpConnection.setRequestProperty("Content-Type", "application/json");
         httpConnection.setRequestProperty("Accept", "application/json");
 
+        // see: https://opentelemetry.io/docs/instrumentation/java/manual/#context-propagation
         GlobalOpenTelemetry.get().getPropagators().getTextMapPropagator().inject(Context.current(), httpConnection, setter);
 
         System.out.println("encoded? " + data.toString());
