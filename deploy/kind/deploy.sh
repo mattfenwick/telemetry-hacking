@@ -10,7 +10,14 @@ NS=th
 kind create cluster --image=kindest/node:v1.23.4
 
 kubectl create ns $NS
-helm install my-jf jaeger --repo https://jaegertracing.github.io/helm-charts -n $NS
+helm install my-jf jaeger \
+  --repo https://jaegertracing.github.io/helm-charts \
+  -n $NS \
+  --set allInOne.enabled=true \
+  --set provisionDataStore.cassandra=false \
+  --set query.enabled=false \
+  --set collector.enabled=false \
+  --set agent.enabled=false
 
 # prometheus?  grafana?
 
