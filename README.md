@@ -9,4 +9,4 @@ It uses:
 
 ## Getting started
 
-Check out [this script](./hack-deploy.sh)
+Check out [this script](./kind/deploy.sh)
